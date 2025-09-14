@@ -1,0 +1,25 @@
+resourcechanges // is maximum 14 days old data
+| extend 
+   changeTime = todatetime(properties.changeAttributes.timestamp),
+   targetResourceId = tostring(properties.targetResourceId),
+   changeType = tostring(properties.changeType),
+   targetResourceType = properties.targetResourceType,
+   changedBy = tolower(properties.changeAttributes.changedBy)
+| extend resourceName = extract(@"/([^/]+)$", 1, targetResourceId)
+| where changeType == "Delete"
+| where changedBy in ("user.name@upn.format.net", "user.name@mail.format")
+| join kind = inner ( //Get Subscription Names
+   resourcecontainers
+   | where type == 'microsoft.resources/subscriptions'
+   | project subscriptionId, subscriptionName = name)
+   on subscriptionId
+| order by changeTime desc
+| project 
+   changeTime,
+   targetResourceType,
+   resourceName,
+   changeType,
+   changedBy,
+   subscriptionName,
+   resourceGroup,
+   targetResourceId
