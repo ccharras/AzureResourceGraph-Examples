@@ -1,0 +1,26 @@
+// Cluster-level view with dynamic core count
+resources
+| where type =~ "microsoft.azurestackhci/clusters"
+| join kind = inner ( //  Get subscription Names
+    resourcecontainers
+    | where type == "microsoft.resources/subscriptions"
+    | project subscriptionId, subscriptionName = name
+) on subscriptionId
+| extend resourceGroupName = tolower(resourceGroup)
+| join kind = leftouter ( // Get resourceGroup Tags
+    resourcecontainers
+    | where type =~ 'microsoft.resources/subscriptions/resourcegroups'
+    | project resourceGroupTags = tags, resourceGroupName = tolower(name), subscriptionId
+) on resourceGroupName, subscriptionId // join on both subscriptionId and resourceGroupName to avoid resource group names that are not globally unique
+| extend resourceGroupTagsLowerCase = parse_json(tolower(tostring(resourceGroupTags)))
+| mv-expand node = properties.reportedProperties.nodes
+| extend nodeCoreCount = toint(node.coreCount)
+| summarize 
+    nodesCount = count(),
+    CoreCountPerCluster = sum(nodeCoreCount),
+    AzureHybridBenefit = any(tostring(properties.softwareAssuranceProperties.softwareAssuranceStatus)),
+    subscriptionName = any(subscriptionName),
+    resourceGroup = any(resourceGroup),
+    ServiceName = any(resourceGroupTagsLowerCase['addyourservicetag'])
+  by id, name
+| sort by name asc
