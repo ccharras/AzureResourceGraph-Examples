@@ -1,0 +1,14 @@
+resourcechanges // in the last 14 days 
+| extend vmSize = properties.changes["properties.hardwareProfile.vmSize"]
+| extend targetResourceId = tostring(properties.targetResourceId)
+| extend 
+    changeTime = todatetime(properties.changeAttributes.timestamp),
+    changeType = tostring(properties.changeType),
+    previousSize = vmSize.previousValue, 
+    newSize = vmSize.newValue,
+    vmName =  toupper(split(properties.targetResourceId,"/").[8]),
+    clientType = tostring(properties.changeAttributes.clientType),
+    changedBy = tostring(properties.changeAttributes.changedBy)
+| where isnotempty(vmSize) 
+| order by changeTime desc
+| project changeTime, vmName, resourceGroup, changeType, previousSize, newSize, targetResourceId 
